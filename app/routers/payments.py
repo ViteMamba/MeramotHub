@@ -4,6 +4,7 @@ from sqlalchemy import func
 from typing import List
 from datetime import datetime, timezone
 from decimal import Decimal
+from uuid import UUID
 
 from app.database import get_db
 from app.models.user import User, UserRole

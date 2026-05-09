@@ -2,6 +2,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
 from uuid import UUID
+from decimal import Decimal
 from app.models.service_provider import SkillCategory, VerificationStatus
 
 class ProfileCreateSchema(BaseModel):
