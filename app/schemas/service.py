@@ -14,8 +14,7 @@ class CategoryResponseSchema(BaseModel):
     description: Optional[str] = None
     skill_required: SkillCategory
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 class ServiceItemCreateSchema(BaseModel):
     category_id: int

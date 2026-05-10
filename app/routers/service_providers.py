@@ -10,10 +10,12 @@ from app.schemas.service_provider import (
     ProfileCreateSchema,
     ProfileUpdateSchema,
     ProfileResponseSchema,
+    LocationUpdateSchema,
     VerificationActionSchema,
 )
 from app.utils.auth import get_current_user
 from app.utils.roles import require_role
+from app.services.geo import haversine_distance
 
 router = APIRouter(prefix="/providers", tags=["Service Providers"])
 
@@ -65,6 +67,61 @@ def get_my_profile(
         )
     return profile
 
+@router.patch("/profile/location", response_model=ProfileResponseSchema)
+def update_location(
+    location_data: LocationUpdateSchema,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.service_provider]))
+):
+    """Provider updates their current GPS location and availability status."""
+    profile = db.query(ServiceProviderProfile).filter(ServiceProviderProfile.user_id == current_user.id).first()
+    if not profile:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found. Create a profile first.")
+    
+    profile.current_latitude = location_data.current_latitude
+    profile.current_longitude = location_data.current_longitude
+    profile.is_available = location_data.is_available
+    profile.last_seen_at = datetime.now(timezone.utc)
+    
+    db.commit()
+    db.refresh(profile)
+    return profile
+
+@router.get("/nearby", response_model=List[ProfileResponseSchema])
+def search_nearby_providers(
+    lat: float = Query(..., description="Customer latitude"),
+    lng: float = Query(..., description="Customer longitude"),
+    radius_km: float = Query(10.0, description="Search radius in kilometers"),
+    skill: Optional[SkillCategory] = Query(None, description="Filter by skill category"),
+    db: Session = Depends(get_db)
+):
+    """Search for nearby available and verified providers within a given radius."""
+    query = db.query(ServiceProviderProfile).filter(
+        ServiceProviderProfile.verification_status == VerificationStatus.verified,
+        ServiceProviderProfile.is_available == True,
+        ServiceProviderProfile.current_latitude.isnot(None),
+        ServiceProviderProfile.current_longitude.isnot(None),
+    )
+    
+    if skill:
+        query = query.filter(ServiceProviderProfile.skill_category == skill)
+    
+    all_available = query.all()
+    
+    # Filter by haversine distance in Python
+    nearby = []
+    for profile in all_available:
+        distance = haversine_distance(
+            lat, lng,
+            float(profile.current_latitude), float(profile.current_longitude)
+        )
+        if distance <= radius_km:
+            nearby.append(profile)
+    
+    # Sort by rating (best first)
+    nearby.sort(key=lambda p: float(p.rating_avg or 0), reverse=True)
+    return nearby
+
 @router.get("/pending", response_model=List[ProfileResponseSchema])
 def list_pending_verifications(
     db: Session = Depends(get_db),
@@ -111,3 +168,4 @@ def list_verified_providers(
         query = query.filter(ServiceProviderProfile.area.ilike(f"%{area}%"))
         
     return query.all()
+

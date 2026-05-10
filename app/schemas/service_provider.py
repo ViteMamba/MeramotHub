@@ -41,9 +41,14 @@ class ProfileResponseSchema(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
+
+class LocationUpdateSchema(BaseModel):
+    current_latitude: Decimal
+    current_longitude: Decimal
+    is_available: bool = True
 
 class VerificationActionSchema(BaseModel):
     action: VerificationStatus # verified or rejected
     note: Optional[str] = None
+

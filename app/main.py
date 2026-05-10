@@ -5,12 +5,29 @@ from app.routers.service_providers import router as providers_router
 from app.routers.services import router as services_router
 from app.routers.bookings import router as bookings_router
 from app.routers.payments import router as payments_router
+from app.routers.reviews import router as reviews_router
+from app.routers.complaints import router as complaints_router
+from app.routers.admin import router as admin_router
+from app.routers.chatbot import router as chatbot_router
+from app.routers.priyo import router as priyo_router
+
+# Import all models so SQLAlchemy registers their metadata
+from app.models import *  # noqa: F401, F403
+from app.database import engine, Base
+
+# Middleware imports
+from app.middleware.exception_handler import GlobalExceptionMiddleware
+from app.middleware.request_logger import RequestLoggingMiddleware
 
 app = FastAPI(
     title="MeramotHub API",
     description="Local service booking system connecting service providers with customers in Bangladesh.",
     version="1.0.0",
 )
+
+# Middleware stack (order matters — outermost first)
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(GlobalExceptionMiddleware)
 
 # CORS — allow React frontend
 app.add_middleware(
@@ -21,12 +38,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Create tables on startup if they don't exist (safe — won't alter existing tables)
+@app.on_event("startup")
+def on_startup():
+    Base.metadata.create_all(bind=engine)
+
 # Mount routers
 app.include_router(auth_router)
 app.include_router(providers_router)
 app.include_router(services_router)
 app.include_router(bookings_router)
 app.include_router(payments_router)
+app.include_router(reviews_router)
+app.include_router(complaints_router)
+app.include_router(admin_router)
+app.include_router(chatbot_router)
+app.include_router(priyo_router)
 
 
 @app.get("/", tags=["Root"])

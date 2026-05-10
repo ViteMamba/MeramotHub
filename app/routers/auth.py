@@ -53,11 +53,14 @@ def register(user_data: UserRegisterSchema, db: Session = Depends(get_db)):
     return new_user
 
 
+from fastapi.security import OAuth2PasswordRequestForm
+
 @router.post("/login", response_model=TokenSchema)
-def login(credentials: UserLoginSchema, db: Session = Depends(get_db)):
+def login(credentials: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     """Authenticate user with phone number and password, return JWT token."""
 
-    user = db.query(User).filter(User.phone_number == credentials.phone_number).first()
+    # Note: OAuth2PasswordRequestForm uses the 'username' field, so we map it to phone_number
+    user = db.query(User).filter(User.phone_number == credentials.username).first()
 
     if not user or not verify_password(credentials.password, user.password_hash):
         raise HTTPException(
