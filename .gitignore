@@ -1,0 +1,13 @@
+# Logs
+API_CHECK_LOG.md
+api_test_log.md
+
+# Utility scripts
+fix_db.py
+sync_db.py
+test_api.py
+check_col.py
+seed_services.py
+
+# Environment
+.env

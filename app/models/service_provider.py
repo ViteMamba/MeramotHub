@@ -10,6 +10,8 @@ class SkillCategory(str, enum.Enum):
     ac_mechanic = "ac_mechanic"
     carpenter = "carpenter"
     painter = "painter"
+    welder = "welder"
+    mason = "mason"
     other = "other"
 
 class VerificationStatus(str, enum.Enum):

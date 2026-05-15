@@ -56,10 +56,11 @@ def register(user_data: UserRegisterSchema, db: Session = Depends(get_db)):
 from fastapi.security import OAuth2PasswordRequestForm
 
 @router.post("/login", response_model=TokenSchema)
-def login(credentials: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    """Authenticate user with phone number and password, return JWT token."""
-
-    # Note: OAuth2PasswordRequestForm uses the 'username' field, so we map it to phone_number
+def login_form(credentials: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    """Authenticate via form data (used by Swagger 'Authorize' button).
+    
+    Use 'username' field for phone number.
+    """
     user = db.query(User).filter(User.phone_number == credentials.username).first()
 
     if not user or not verify_password(credentials.password, user.password_hash):
@@ -76,7 +77,31 @@ def login(credentials: OAuth2PasswordRequestForm = Depends(), db: Session = Depe
         )
 
     access_token = create_access_token(data={"sub": str(user.id)})
+    return TokenSchema(access_token=access_token, token_type="bearer")
 
+
+@router.post("/login/json", response_model=TokenSchema)
+def login_json(credentials: UserLoginSchema, db: Session = Depends(get_db)):
+    """Authenticate via JSON body (used by frontend and API clients).
+    
+    Send: {"phone_number": "01712345678", "password": "yourpass"}
+    """
+    user = db.query(User).filter(User.phone_number == credentials.phone_number).first()
+
+    if not user or not verify_password(credentials.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid phone number or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is deactivated. Contact support.",
+        )
+
+    access_token = create_access_token(data={"sub": str(user.id)})
     return TokenSchema(access_token=access_token, token_type="bearer")
 
 

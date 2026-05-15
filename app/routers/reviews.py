@@ -66,18 +66,19 @@ def create_review(
     ).first()
 
     if provider_profile:
-        # Calculate new average using all reviews for this provider
         result = db.query(
             func.count(Review.id),
             func.avg(Review.rating)
         ).filter(Review.provider_id == booking.provider_id).first()
 
-        # Include the current new review (not yet flushed)
         existing_count = result[0] or 0
         existing_avg = float(result[1]) if result[1] else 0.0
 
         new_count = existing_count + 1
-        new_avg = ((existing_avg * existing_count) + review_data.rating) / new_count
+        if existing_count > 0:
+            new_avg = ((existing_avg * existing_count) + review_data.rating) / new_count
+        else:
+            new_avg = float(review_data.rating)
 
         provider_profile.rating_count = new_count
         provider_profile.rating_avg = round(new_avg, 2)
