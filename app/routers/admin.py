@@ -114,6 +114,7 @@ def list_users(
             "role": str(u.role),
             "is_active": u.is_active,
             "is_verified": u.is_verified,
+            "is_approved": u.is_approved,
             "created_at": str(u.created_at),
         }
         for u in users

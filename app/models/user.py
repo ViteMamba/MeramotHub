@@ -24,6 +24,7 @@ class User(Base):
     role = Column(SAEnum(UserRole), nullable=False, default=UserRole.customer)
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
+    is_approved = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
         DateTime(timezone=True),
