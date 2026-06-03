@@ -15,6 +15,7 @@ class BookingStatus(str, enum.Enum):
     pending = "pending"
     accepted = "accepted"
     started = "started"
+    pending_completion = "pending_completion"
     completed = "completed"
     cancelled = "cancelled"
     disputed = "disputed"

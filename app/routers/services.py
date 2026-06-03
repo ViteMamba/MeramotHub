@@ -42,15 +42,17 @@ def list_categories(db: Session = Depends(get_db)):
 def create_service_item(
     item_data: ServiceItemCreateSchema,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role([UserRole.admin]))
+    current_user: User = Depends(require_role([UserRole.admin, UserRole.service_provider]))
 ):
-    """Create a new service item with fixed pricing (Admin only)."""
+    """Create a new service item with fixed pricing (Admin/Provider)."""
     # Verify category exists
     category = db.query(ServiceCategory).filter(ServiceCategory.id == item_data.category_id).first()
     if not category:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
         
     new_item = ServiceItem(**item_data.model_dump())
+    if current_user.role == UserRole.service_provider:
+        new_item.provider_id = current_user.id
     db.add(new_item)
     db.commit()
     db.refresh(new_item)
