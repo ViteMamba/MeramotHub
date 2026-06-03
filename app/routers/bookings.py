@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime, timezone
@@ -56,8 +57,16 @@ def get_assigned_bookings(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role([UserRole.service_provider]))
 ):
-    """Provider views bookings assigned to them."""
-    return db.query(Booking).filter(Booking.provider_id == current_user.id).all()
+    """Provider views bookings for service items they created."""
+    provider_item_ids = db.query(ServiceItem.id).filter(
+        ServiceItem.provider_id == current_user.id
+    ).subquery()
+    return db.query(Booking).filter(
+        or_(
+            Booking.provider_id == current_user.id,
+            Booking.service_item_id.in_(provider_item_ids)
+        )
+    ).all()
 
 @router.patch("/{booking_id}/accept", response_model=BookingResponseSchema)
 def accept_booking(
@@ -104,7 +113,7 @@ def complete_work(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role([UserRole.service_provider]))
 ):
-    """Provider marks work as completed."""
+    """Provider marks work as finished — customer must confirm or complain."""
     booking = db.query(Booking).filter(Booking.id == booking_id, Booking.provider_id == current_user.id).first()
     if not booking:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found or not assigned to you")
@@ -112,11 +121,27 @@ def complete_work(
     if booking.status != BookingStatus.started:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Work can only be completed after it has started")
         
+    booking.status = BookingStatus.pending_completion
+    db.commit()
+    db.refresh(booking)
+    return booking
+
+@router.patch("/{booking_id}/confirm", response_model=BookingResponseSchema)
+def confirm_completion(
+    booking_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.customer]))
+):
+    """Customer confirms work was finished properly."""
+    booking = db.query(Booking).filter(Booking.id == booking_id, Booking.customer_id == current_user.id).first()
+    if not booking:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found or not assigned to you")
+    
+    if booking.status != BookingStatus.pending_completion:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Cannot confirm booking in {booking.status} status")
+        
     booking.status = BookingStatus.completed
-    
-    # Release payment from escrow
     release_payment(db, booking.id)
-    
     db.commit()
     db.refresh(booking)
     return booking

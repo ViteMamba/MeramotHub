@@ -3,19 +3,19 @@ from typing import Optional, List
 from datetime import datetime
 from uuid import UUID
 from decimal import Decimal
-from app.models.service_provider import SkillCategory, VerificationStatus
+from app.models.service_provider import VerificationStatus
 
 class ProfileCreateSchema(BaseModel):
     nid_number: str
     nid_image_url: Optional[str] = None
-    skill_category: SkillCategory
+    skill_category: str
     experience_years: int
     bio: Optional[str] = None
     area: Optional[str] = None
 
 class ProfileUpdateSchema(BaseModel):
     nid_image_url: Optional[str] = None
-    skill_category: Optional[SkillCategory] = None
+    skill_category: Optional[str] = None
     experience_years: Optional[int] = None
     bio: Optional[str] = None
     area: Optional[str] = None
@@ -25,7 +25,7 @@ class ProfileResponseSchema(BaseModel):
     user_id: UUID
     nid_number: str
     nid_image_url: Optional[str] = None
-    skill_category: SkillCategory
+    skill_category: str
     experience_years: int
     bio: Optional[str] = None
     area: Optional[str] = None
@@ -33,8 +33,8 @@ class ProfileResponseSchema(BaseModel):
     current_longitude: Optional[Decimal] = None
     is_available: bool = False
     last_seen_at: Optional[datetime] = None
-    rating_avg: Decimal = 0.0
-    rating_count: int = 0
+    rating_avg: Optional[Decimal] = None
+    rating_count: Optional[int] = None
     verification_status: VerificationStatus
     verified_by: Optional[UUID] = None
     verified_at: Optional[datetime] = None
