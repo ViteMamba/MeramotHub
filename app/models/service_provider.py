@@ -24,9 +24,9 @@ class ServiceProviderProfile(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), unique=True, nullable=False)
-    nid_number = Column(String(20), unique=True, nullable=False)
+    nid_number = Column(String(50), unique=True, nullable=False)
     nid_image_url = Column(String(255), nullable=True)
-    skill_category = Column(SAEnum(SkillCategory, native_enum=False), nullable=False)
+    skill_category = Column(String(100), nullable=False)
     experience_years = Column(Integer, default=0)
     bio = Column(Text, nullable=True)
     area = Column(String(100), nullable=True)

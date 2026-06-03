@@ -1,8 +1,9 @@
+import traceback
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.schemas.user import (
     UserRegisterSchema,
     UserLoginSchema,
@@ -61,23 +62,29 @@ def login_form(credentials: OAuth2PasswordRequestForm = Depends(), db: Session =
     
     Use 'username' field for phone number.
     """
-    user = db.query(User).filter(User.phone_number == credentials.username).first()
+    try:
+        user = db.query(User).filter(User.phone_number == credentials.username).first()
 
-    if not user or not verify_password(credentials.password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid phone number or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        if not user or not verify_password(credentials.password, user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid phone number or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is deactivated. Contact support.",
-        )
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Account is deactivated. Contact support.",
+            )
 
-    access_token = create_access_token(data={"sub": str(user.id)})
-    return TokenSchema(access_token=access_token, token_type="bearer")
+        access_token = create_access_token(data={"sub": str(user.id)})
+        return TokenSchema(access_token=access_token, token_type="bearer")
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/login/json", response_model=TokenSchema)
@@ -86,23 +93,30 @@ def login_json(credentials: UserLoginSchema, db: Session = Depends(get_db)):
     
     Send: {"phone_number": "01712345678", "password": "yourpass"}
     """
-    user = db.query(User).filter(User.phone_number == credentials.phone_number).first()
+    try:
+        user = db.query(User).filter(User.phone_number == credentials.phone_number).first()
 
-    if not user or not verify_password(credentials.password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid phone number or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        if not user or not verify_password(credentials.password, user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid phone number or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is deactivated. Contact support.",
-        )
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Account is deactivated. Contact support.",
+            )
 
-    access_token = create_access_token(data={"sub": str(user.id)})
-    return TokenSchema(access_token=access_token, token_type="bearer")
+        access_token = create_access_token(data={"sub": str(user.id)})
+        return TokenSchema(access_token=access_token, token_type="bearer")
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/me", response_model=UserResponseSchema)
