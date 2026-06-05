@@ -9,5 +9,20 @@ test_api.py
 check_col.py
 seed_services.py
 
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
 # Environment
 .env
