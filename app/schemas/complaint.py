@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 from uuid import UUID
-from app.models.complaint import ComplaintStatus, ComplaintResolution
+from app.models.complaint import ComplaintStatus
 
 
 class ComplaintCreateSchema(BaseModel):
@@ -16,7 +16,7 @@ class ComplaintAssignSchema(BaseModel):
 
 
 class ComplaintResolveSchema(BaseModel):
-    resolution: ComplaintResolution
+    resolution: str
     resolution_note: Optional[str] = None
 
 
@@ -28,7 +28,7 @@ class ComplaintResponseSchema(BaseModel):
     subject: str
     description: str
     status: ComplaintStatus
-    resolution: Optional[ComplaintResolution] = None
+    resolution: Optional[str] = None
     resolution_note: Optional[str] = None
     created_at: datetime
     resolved_at: Optional[datetime] = None

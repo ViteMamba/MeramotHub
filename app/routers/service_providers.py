@@ -1,5 +1,7 @@
+import os
+import uuid
 import traceback
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, timezone
@@ -36,17 +38,25 @@ def create_profile(
                 detail="Profile already exists for this user"
             )
         
-        # Check if NID already exists
-        existing_nid = db.query(ServiceProviderProfile).filter(ServiceProviderProfile.nid_number == profile_data.nid_number).first()
+        # Check if NID already exists on User model
+        existing_nid = db.query(User).filter(User.nid_number == profile_data.nid_number).first()
         if existing_nid:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="A profile with this NID number already exists"
             )
 
+        # Save nid_number and area to User model
+        current_user.nid_number = profile_data.nid_number
+        if profile_data.area:
+            current_user.area = profile_data.area
+
         new_profile = ServiceProviderProfile(
             user_id=current_user.id,
-            **profile_data.model_dump(),
+            nid_image_url=profile_data.nid_image_url,
+            skill_category=profile_data.skill_category,
+            experience_years=profile_data.experience_years,
+            bio=profile_data.bio,
             verification_status=VerificationStatus.pending
         )
         
@@ -99,19 +109,39 @@ def update_location(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role([UserRole.service_provider]))
 ):
-    """Provider updates their current GPS location and availability status."""
+    """Provider updates their current GPS location (stored on User) and availability status."""
     profile = db.query(ServiceProviderProfile).filter(ServiceProviderProfile.user_id == current_user.id).first()
     if not profile:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found. Create a profile first.")
     
-    profile.current_latitude = location_data.current_latitude
-    profile.current_longitude = location_data.current_longitude
+    current_user.latitude = location_data.latitude
+    current_user.longitude = location_data.longitude
     profile.is_available = location_data.is_available
     profile.last_seen_at = datetime.now(timezone.utc)
     
     db.commit()
     db.refresh(profile)
     return profile
+
+@router.post("/profile/upload-nid")
+async def upload_nid_image(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.service_provider])),
+):
+    """Upload NID image — returns URL + original filename (saved on form submit)."""
+    original = file.filename or "nid_image.jpg"
+    ext = os.path.splitext(original)[1] or ".jpg"
+    filename = f"nid_{uuid.uuid4()}{ext}"
+    base_dir = os.path.join(os.path.dirname(__file__), "..", "..", "uploads", "nid")
+    os.makedirs(base_dir, exist_ok=True)
+    filepath = os.path.join(base_dir, filename)
+
+    contents = await file.read()
+    with open(filepath, "wb") as f:
+        f.write(contents)
+
+    return {"url": f"/uploads/nid/{filename}", "original_name": original}
 
 @router.get("/nearby", response_model=List[ProfileResponseSchema])
 def search_nearby_providers(
@@ -122,11 +152,11 @@ def search_nearby_providers(
     db: Session = Depends(get_db)
 ):
     """Search for nearby available and verified providers within a given radius."""
-    query = db.query(ServiceProviderProfile).filter(
+    query = db.query(ServiceProviderProfile).join(User).filter(
         ServiceProviderProfile.verification_status == VerificationStatus.verified,
         ServiceProviderProfile.is_available == True,
-        ServiceProviderProfile.current_latitude.isnot(None),
-        ServiceProviderProfile.current_longitude.isnot(None),
+        User.latitude.isnot(None),
+        User.longitude.isnot(None),
     )
     
     if skill:
@@ -139,7 +169,7 @@ def search_nearby_providers(
     for profile in all_available:
         distance = haversine_distance(
             lat, lng,
-            float(profile.current_latitude), float(profile.current_longitude)
+            float(profile.user.latitude), float(profile.user.longitude)
         )
         if distance <= radius_km:
             nearby.append(profile)
@@ -188,12 +218,12 @@ def list_verified_providers(
     db: Session = Depends(get_db)
 ):
     """List all verified service providers with optional filters."""
-    query = db.query(ServiceProviderProfile).filter(ServiceProviderProfile.verification_status == VerificationStatus.verified)
+    query = db.query(ServiceProviderProfile).join(User).filter(ServiceProviderProfile.verification_status == VerificationStatus.verified)
     
     if skill:
         query = query.filter(ServiceProviderProfile.skill_category == skill)
     if area:
-        query = query.filter(ServiceProviderProfile.area.ilike(f"%{area}%"))
+        query = query.filter(User.area.ilike(f"%{area}%"))
         
     return query.all()
 

@@ -4,9 +4,11 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.user import User, UserRole
+from app.models.service_provider import ServiceProviderProfile
 from app.schemas.user import (
     UserRegisterSchema,
     UserLoginSchema,
+    UserUpdateSchema,
     UserResponseSchema,
     TokenSchema,
 )
@@ -120,6 +122,39 @@ def login_json(credentials: UserLoginSchema, db: Session = Depends(get_db)):
 
 
 @router.get("/me", response_model=UserResponseSchema)
-def get_me(current_user: User = Depends(get_current_user)):
+def get_me(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """Return the currently authenticated user's profile."""
+    if current_user.role == UserRole.service_provider:
+        profile = db.query(ServiceProviderProfile).filter(
+            ServiceProviderProfile.user_id == current_user.id
+        ).first()
+        if profile:
+            current_user.nid_image_url = profile.nid_image_url
+    return current_user
+
+
+@router.patch("/me", response_model=UserResponseSchema)
+def update_me(
+    user_data: UserUpdateSchema,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Update current user's profile fields."""
+    update_data = user_data.model_dump(exclude_unset=True)
+    if "email" in update_data and update_data["email"] == "":
+        update_data["email"] = None
+    if "phone_number" in update_data:
+        existing = db.query(User).filter(
+            User.phone_number == update_data["phone_number"],
+            User.id != current_user.id
+        ).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Phone number already in use")
+    for key, value in update_data.items():
+        setattr(current_user, key, value)
+    db.commit()
+    db.refresh(current_user)
     return current_user

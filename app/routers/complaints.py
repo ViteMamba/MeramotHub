@@ -6,7 +6,7 @@ from uuid import UUID
 
 from app.database import get_db
 from app.models.user import User, UserRole
-from app.models.booking import Booking
+from app.models.booking import Booking, BookingStatus
 from app.models.complaint import Complaint, ComplaintStatus, ComplaintResolution
 from app.schemas.complaint import (
     ComplaintCreateSchema,
@@ -46,6 +46,7 @@ def file_complaint(
         description=complaint_data.description,
         status=ComplaintStatus.open,
     )
+    booking.status = BookingStatus.disputed
     db.add(new_complaint)
     db.commit()
     db.refresh(new_complaint)
@@ -127,23 +128,24 @@ def resolve_complaint(
             detail="Complaint is already resolved or dismissed"
         )
 
+    booking = db.query(Booking).filter(Booking.id == complaint.booking_id).first()
+
     complaint.resolution = resolve_data.resolution
     complaint.resolution_note = resolve_data.resolution_note
     complaint.resolved_at = datetime.now(timezone.utc)
 
     if resolve_data.resolution == ComplaintResolution.refunded:
-        # Trigger refund through payment service
         refund_result = refund_payment(db, complaint.booking_id)
         if not refund_result:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Could not process refund — payment not found or not in 'held' status"
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Refund failed")
         complaint.status = ComplaintStatus.resolved
+        booking.status = BookingStatus.completed
     elif resolve_data.resolution == ComplaintResolution.no_action:
         complaint.status = ComplaintStatus.dismissed
+        booking.status = BookingStatus.pending_completion
     else:
         complaint.status = ComplaintStatus.resolved
+        booking.status = BookingStatus.completed
 
     db.commit()
     db.refresh(complaint)

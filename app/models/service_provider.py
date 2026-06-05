@@ -1,6 +1,7 @@
 import enum
 from datetime import datetime, timezone
 from sqlalchemy import Column, String, Integer, ForeignKey, Enum as SAEnum, DateTime, Text, Numeric, Boolean
+from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from app.database import Base
 
@@ -24,17 +25,12 @@ class ServiceProviderProfile(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), unique=True, nullable=False)
-    nid_number = Column(String(50), unique=True, nullable=False)
     nid_image_url = Column(String(255), nullable=True)
     skill_category = Column(String(100), nullable=False)
     experience_years = Column(Integer, default=0)
     bio = Column(Text, nullable=True)
-    area = Column(String(100), nullable=True)
-    
-    # Feature 7 & 16: Location and Availability
-    current_latitude = Column(Numeric(10, 7), nullable=True)
-    current_longitude = Column(Numeric(10, 7), nullable=True)
     is_available = Column(Boolean, default=False)
+    user = relationship("User", foreign_keys=[user_id])
     last_seen_at = Column(DateTime(timezone=True), nullable=True)
 
     # Feature 8: Ratings (recalculated on every review)
