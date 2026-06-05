@@ -12,6 +12,7 @@ class ComplaintStatus(str, enum.Enum):
     assigned = "assigned"
     resolved = "resolved"
     dismissed = "dismissed"
+    prog = "prog"
 
 
 class ComplaintResolution(str, enum.Enum):
@@ -32,7 +33,7 @@ class Complaint(Base):
     subject = Column(String(200), nullable=False)
     description = Column(Text, nullable=False)
     status = Column(SAEnum(ComplaintStatus, native_enum=False), default=ComplaintStatus.open)
-    resolution = Column(SAEnum(ComplaintResolution, native_enum=False), nullable=True)
+    resolution = Column(String(100), nullable=True)
     resolution_note = Column(Text, nullable=True)
 
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

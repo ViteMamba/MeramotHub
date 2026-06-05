@@ -9,15 +9,20 @@ test_api.py
 check_col.py
 seed_services.py
 
-# Byte-compiled
+# Python
 __pycache__/
 *.py[cod]
+*.egg-info/
+dist/
+build/
 
-# Database
-*.db
+# Virtual environment
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
 
 # Environment
 .env
-
-# Temp files
-nul

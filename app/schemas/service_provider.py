@@ -18,19 +18,14 @@ class ProfileUpdateSchema(BaseModel):
     skill_category: Optional[str] = None
     experience_years: Optional[int] = None
     bio: Optional[str] = None
-    area: Optional[str] = None
 
 class ProfileResponseSchema(BaseModel):
     id: int
     user_id: UUID
-    nid_number: str
     nid_image_url: Optional[str] = None
     skill_category: str
     experience_years: int
     bio: Optional[str] = None
-    area: Optional[str] = None
-    current_latitude: Optional[Decimal] = None
-    current_longitude: Optional[Decimal] = None
     is_available: bool = False
     last_seen_at: Optional[datetime] = None
     rating_avg: Optional[Decimal] = None
@@ -44,8 +39,8 @@ class ProfileResponseSchema(BaseModel):
     model_config = {"from_attributes": True}
 
 class LocationUpdateSchema(BaseModel):
-    current_latitude: Decimal
-    current_longitude: Decimal
+    latitude: Decimal
+    longitude: Decimal
     is_available: bool = True
 
 class VerificationActionSchema(BaseModel):
