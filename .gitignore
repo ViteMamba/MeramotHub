@@ -12,6 +12,9 @@ seed_services.py
 Python
 pycache/
 *.py[cod]
+*$py.class
+*.pyo
+*.pyd
 *.egg-info/
 dist/
 build/
