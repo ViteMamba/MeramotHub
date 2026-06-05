@@ -1,5 +1,7 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from app.routers.auth import router as auth_router
 from app.routers.service_providers import router as providers_router
 from app.routers.services import router as services_router
@@ -59,6 +61,10 @@ app.include_router(complaints_router)
 app.include_router(admin_router)
 app.include_router(chatbot_router)
 app.include_router(priyo_router)
+
+UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "uploads")
+os.makedirs(os.path.join(UPLOAD_DIR, "nid"), exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 
 @app.get("/", tags=["Root"])

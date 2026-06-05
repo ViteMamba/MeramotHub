@@ -68,10 +68,4 @@ def get_current_user(
             detail="Account is deactivated",
         )
 
-    if user.role == UserRole.service_provider and not user.is_approved:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is not yet approved by admin",
-        )
-
     return user

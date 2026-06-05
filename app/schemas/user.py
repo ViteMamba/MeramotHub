@@ -49,6 +49,16 @@ class UserLoginSchema(BaseModel):
     password: str
 
 
+class UserUpdateSchema(BaseModel):
+    full_name: Optional[str] = None
+    phone_number: Optional[str] = None
+    email: Optional[str] = None
+    nid_number: Optional[str] = None
+    area: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+
+
 class UserResponseSchema(BaseModel):
     id: UUID
     full_name: str
@@ -60,6 +70,11 @@ class UserResponseSchema(BaseModel):
     is_approved: bool = False
     created_at: datetime
     updated_at: datetime
+    nid_number: Optional[str] = None
+    area: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    nid_image_url: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
