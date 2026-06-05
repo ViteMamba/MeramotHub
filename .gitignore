@@ -9,5 +9,15 @@ test_api.py
 check_col.py
 seed_services.py
 
+# Byte-compiled
+__pycache__/
+*.py[cod]
+
+# Database
+*.db
+
 # Environment
 .env
+
+# Temp files
+nul
