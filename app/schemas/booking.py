@@ -33,5 +33,6 @@ class BookingResponseSchema(BaseModel):
     total_price: Decimal
     created_at: datetime
     updated_at: datetime
+    provider_name: Optional[str] = None
 
     model_config = {"from_attributes": True}

@@ -20,6 +20,14 @@ from app.utils.roles import require_role
 
 router = APIRouter(prefix="/bookings", tags=["Bookings"])
 
+def _enrich_booking(booking, db):
+    """Attach provider_name to a Booking object if provider_id is set."""
+    if booking.provider_id:
+        provider = db.query(User).filter(User.id == booking.provider_id).first()
+        if provider:
+            booking.provider_name = provider.full_name
+    return booking
+
 @router.post("/", response_model=BookingResponseSchema, status_code=status.HTTP_201_CREATED)
 def create_booking(
     booking_data: BookingCreateSchema,
@@ -42,7 +50,7 @@ def create_booking(
     db.add(new_booking)
     db.commit()
     db.refresh(new_booking)
-    return new_booking
+    return _enrich_booking(new_booking, db)
 
 @router.get("/my", response_model=List[BookingResponseSchema])
 def get_my_bookings(
@@ -50,7 +58,8 @@ def get_my_bookings(
     current_user: User = Depends(require_role([UserRole.customer]))
 ):
     """Customer views their own bookings."""
-    return db.query(Booking).filter(Booking.customer_id == current_user.id).all()
+    bookings = db.query(Booking).filter(Booking.customer_id == current_user.id).all()
+    return [_enrich_booking(b, db) for b in bookings]
 
 @router.get("/assigned", response_model=List[BookingResponseSchema])
 def get_assigned_bookings(
@@ -61,12 +70,13 @@ def get_assigned_bookings(
     provider_item_ids = db.query(ServiceItem.id).filter(
         ServiceItem.provider_id == current_user.id
     ).subquery()
-    return db.query(Booking).filter(
+    bookings = db.query(Booking).filter(
         or_(
             Booking.provider_id == current_user.id,
             Booking.service_item_id.in_(provider_item_ids)
         )
     ).all()
+    return [_enrich_booking(b, db) for b in bookings]
 
 @router.patch("/{booking_id}/accept", response_model=BookingResponseSchema)
 def accept_booking(
@@ -86,7 +96,7 @@ def accept_booking(
     booking.status = BookingStatus.accepted
     db.commit()
     db.refresh(booking)
-    return booking
+    return _enrich_booking(booking, db)
 
 @router.patch("/{booking_id}/start", response_model=BookingResponseSchema)
 def start_work(
@@ -105,7 +115,7 @@ def start_work(
     booking.status = BookingStatus.started
     db.commit()
     db.refresh(booking)
-    return booking
+    return _enrich_booking(booking, db)
 
 @router.patch("/{booking_id}/complete", response_model=BookingResponseSchema)
 def complete_work(
@@ -124,7 +134,7 @@ def complete_work(
     booking.status = BookingStatus.pending_completion
     db.commit()
     db.refresh(booking)
-    return booking
+    return _enrich_booking(booking, db)
 
 @router.patch("/{booking_id}/confirm", response_model=BookingResponseSchema)
 def confirm_completion(
@@ -144,7 +154,7 @@ def confirm_completion(
     release_payment(db, booking.id)
     db.commit()
     db.refresh(booking)
-    return booking
+    return _enrich_booking(booking, db)
 
 @router.patch("/{booking_id}/cancel", response_model=BookingResponseSchema)
 def cancel_booking(
@@ -167,4 +177,4 @@ def cancel_booking(
     booking.status = BookingStatus.cancelled
     db.commit()
     db.refresh(booking)
-    return booking
+    return _enrich_booking(booking, db)

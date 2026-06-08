@@ -6,6 +6,7 @@ from app.models.payment import Payment, PaymentStatus
 from app.models.review import Review
 from app.models.complaint import Complaint, ComplaintStatus, ComplaintResolution
 from app.models.subscription import Subscription
+from app.models.message import Message
 
 __all__ = [
     "User", "UserRole",
@@ -16,4 +17,5 @@ __all__ = [
     "Review",
     "Complaint", "ComplaintStatus", "ComplaintResolution",
     "Subscription",
+    "Message",
 ]

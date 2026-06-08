@@ -82,7 +82,7 @@ def create_service_item(
     return _enrich_item(new_item, db)
 
 def _enrich_item(item, db=None):
-    """Attach category_name and provider_area to a ServiceItem object."""
+    """Attach category_name, provider_area, and provider_name to a ServiceItem object."""
     if item.category:
         item.category_name = item.category.name
     if item.created_at:
@@ -90,6 +90,7 @@ def _enrich_item(item, db=None):
     if db and item.provider_id:
         provider = db.query(User).filter(User.id == item.provider_id).first()
         if provider:
+            item.provider_name = provider.full_name
             if provider.area:
                 item.provider_area = provider.area
             if provider.latitude is not None:

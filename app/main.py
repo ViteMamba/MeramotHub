@@ -11,6 +11,7 @@ from app.routers.reviews import router as reviews_router
 from app.routers.complaints import router as complaints_router
 from app.routers.admin import router as admin_router
 from app.routers.chatbot import router as chatbot_router
+from app.routers.chat import router as chat_router
 from app.routers.priyo import router as priyo_router
 
 # Import all models so SQLAlchemy registers their metadata
@@ -60,6 +61,7 @@ app.include_router(reviews_router)
 app.include_router(complaints_router)
 app.include_router(admin_router)
 app.include_router(chatbot_router)
+app.include_router(chat_router)
 app.include_router(priyo_router)
 
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "uploads")

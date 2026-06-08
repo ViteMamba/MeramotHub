@@ -38,6 +38,7 @@ class ServiceItemResponseSchema(BaseModel):
     provider_area: Optional[str] = None
     provider_latitude: Optional[Decimal] = None
     provider_longitude: Optional[Decimal] = None
+    provider_name: Optional[str] = None
 
     class Config:
         from_attributes = True
