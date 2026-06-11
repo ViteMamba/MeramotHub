@@ -7,11 +7,11 @@ from app.models.service_provider import VerificationStatus
 
 class ProfileCreateSchema(BaseModel):
     nid_number: str
-    nid_image_url: Optional[str] = None
+    nid_image_url: str
     skill_category: str
     experience_years: int
-    bio: Optional[str] = None
-    area: Optional[str] = None
+    bio: str
+    area: str
 
 class ProfileUpdateSchema(BaseModel):
     nid_image_url: Optional[str] = None

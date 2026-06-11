@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import Optional
 from datetime import datetime, timezone, timedelta
 
 from app.database import get_db
@@ -12,13 +12,14 @@ from app.models.subscription import Subscription
 from app.schemas.subscription import (
     SubscriptionCreateSchema,
     SubscriptionResponseSchema,
+    SubscriptionCheckSchema,
     InstantBookingCreateSchema,
 )
 from app.schemas.booking import BookingResponseSchema
 from app.utils.roles import require_role
 from app.services.geo import haversine_distance
 
-router = APIRouter(prefix="/priyo", tags=["Priyo Workshop & Instant Booking"])
+router = APIRouter(prefix="/priyo", tags=["Priyo / Subscription"])
 
 
 # ──────────────────────────────────────────────
@@ -26,9 +27,9 @@ router = APIRouter(prefix="/priyo", tags=["Priyo Workshop & Instant Booking"])
 # ──────────────────────────────────────────────
 
 def require_pro(db: Session, user_id) -> Subscription:
-    """Check that the provider has an active Priyo subscription."""
+    """Check that the user has an active Priyo subscription."""
     sub = db.query(Subscription).filter(
-        Subscription.provider_user_id == user_id,
+        Subscription.user_id == user_id,
         Subscription.is_active == True
     ).first()
     if not sub:
@@ -36,7 +37,6 @@ def require_pro(db: Session, user_id) -> Subscription:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Active Priyo subscription required for this feature"
         )
-    # Check expiry
     if sub.expires_at and sub.expires_at < datetime.now(timezone.utc):
         sub.is_active = False
         db.commit()
@@ -51,11 +51,11 @@ def require_pro(db: Session, user_id) -> Subscription:
 def subscribe_priyo(
     sub_data: SubscriptionCreateSchema,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role([UserRole.service_provider]))
+    current_user: User = Depends(require_role([UserRole.customer, UserRole.service_provider]))
 ):
-    """Service provider subscribes to Priyo Workshop for priority features."""
+    """Subscribe to Priyo Pro. Requires mfs_transaction_id for payment."""
     existing = db.query(Subscription).filter(
-        Subscription.provider_user_id == current_user.id
+        Subscription.user_id == current_user.id
     ).first()
 
     if existing and existing.is_active:
@@ -64,10 +64,16 @@ def subscribe_priyo(
             detail="You already have an active subscription"
         )
 
-    # If expired, reactivate
+    if not sub_data.mfs_transaction_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="MFS transaction ID is required for payment"
+        )
+
     if existing and not existing.is_active:
         existing.is_active = True
         existing.plan_name = sub_data.plan_name
+        existing.mfs_transaction_id = sub_data.mfs_transaction_id
         existing.started_at = datetime.now(timezone.utc)
         existing.expires_at = datetime.now(timezone.utc) + timedelta(days=30)
         db.commit()
@@ -75,8 +81,9 @@ def subscribe_priyo(
         return existing
 
     new_sub = Subscription(
-        provider_user_id=current_user.id,
+        user_id=current_user.id,
         plan_name=sub_data.plan_name,
+        mfs_transaction_id=sub_data.mfs_transaction_id,
         is_active=True,
         started_at=datetime.now(timezone.utc),
         expires_at=datetime.now(timezone.utc) + timedelta(days=30),
@@ -90,25 +97,47 @@ def subscribe_priyo(
 @router.get("/subscription", response_model=SubscriptionResponseSchema)
 def get_my_subscription(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role([UserRole.service_provider]))
+    current_user: User = Depends(require_role([UserRole.customer, UserRole.service_provider]))
 ):
-    """Provider checks their current subscription status."""
+    """Check your current subscription status."""
     sub = db.query(Subscription).filter(
-        Subscription.provider_user_id == current_user.id
+        Subscription.user_id == current_user.id
     ).first()
     if not sub:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No subscription found")
     return sub
 
 
+@router.get("/check-subscription", response_model=SubscriptionCheckSchema)
+def check_subscription(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.customer, UserRole.service_provider]))
+):
+    """Quick check if user has an active subscription."""
+    sub = db.query(Subscription).filter(
+        Subscription.user_id == current_user.id,
+        Subscription.is_active == True
+    ).first()
+    if not sub or (sub.expires_at and sub.expires_at < datetime.now(timezone.utc)):
+        if sub:
+            sub.is_active = False
+            db.commit()
+        return SubscriptionCheckSchema(is_active=False)
+    return SubscriptionCheckSchema(
+        is_active=True,
+        plan_name=sub.plan_name,
+        expires_at=sub.expires_at,
+    )
+
+
 @router.delete("/unsubscribe")
 def cancel_subscription(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role([UserRole.service_provider]))
+    current_user: User = Depends(require_role([UserRole.customer, UserRole.service_provider]))
 ):
-    """Provider cancels their Priyo subscription."""
+    """Cancel your Priyo subscription."""
     sub = db.query(Subscription).filter(
-        Subscription.provider_user_id == current_user.id,
+        Subscription.user_id == current_user.id,
         Subscription.is_active == True
     ).first()
     if not sub:
@@ -132,17 +161,17 @@ def create_instant_booking(
     """
     Customer creates an instant booking.
     The system auto-assigns the nearest available Priyo-subscribed provider.
+    Customer must have an active Priyo subscription to use this feature.
     """
-    # Verify service item exists
+    require_pro(db, current_user.id)
+
     service_item = db.query(ServiceItem).filter(ServiceItem.id == booking_data.service_item_id).first()
     if not service_item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service item not found")
 
-    # Find the nearest available provider with an active Priyo subscription
     assigned_provider = None
     best_distance = float("inf")
 
-    # Get all available, verified providers with location
     providers = db.query(ServiceProviderProfile).filter(
         ServiceProviderProfile.verification_status == VerificationStatus.verified,
         ServiceProviderProfile.is_available == True,
@@ -151,19 +180,14 @@ def create_instant_booking(
     ).all()
 
     for provider in providers:
-        # Check if provider has active Priyo subscription
         sub = db.query(Subscription).filter(
-            Subscription.provider_user_id == provider.user_id,
+            Subscription.user_id == provider.user_id,
             Subscription.is_active == True
         ).first()
         if not sub:
             continue
-
-        # Check expiry
         if sub.expires_at and sub.expires_at < datetime.now(timezone.utc):
             continue
-
-        # Calculate distance if customer provides location
         if booking_data.latitude and booking_data.longitude:
             distance = haversine_distance(
                 float(booking_data.latitude), float(booking_data.longitude),
@@ -173,7 +197,6 @@ def create_instant_booking(
                 best_distance = distance
                 assigned_provider = provider
         else:
-            # No location — just pick the first available Priyo provider
             assigned_provider = provider
             break
 
@@ -193,7 +216,7 @@ def create_instant_booking(
         longitude=booking_data.longitude,
         notes=booking_data.notes,
         total_price=service_item.base_price,
-        status=BookingStatus.accepted,  # Auto-accepted for instant bookings
+        status=BookingStatus.accepted,
     )
 
     db.add(new_booking)

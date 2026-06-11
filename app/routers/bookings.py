@@ -116,7 +116,7 @@ def pay_and_book(
         longitude=data.longitude,
         notes=data.notes,
         total_price=service_item.base_price,
-        status=BookingStatus.accepted if service_item.provider_id else BookingStatus.pending,
+        status=BookingStatus.pending,
     )
     db.add(new_booking)
     db.flush()

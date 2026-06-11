@@ -1,5 +1,6 @@
 import os
 from fastapi import FastAPI
+from sqlalchemy import text
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.routers.auth import router as auth_router
@@ -49,6 +50,13 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)
+    # Add missing columns to existing subscriptions table (dev migration)
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS mfs_transaction_id VARCHAR(100)"))
+            conn.commit()
+    except Exception:
+        pass  # Table might not exist yet
 
 # Mount routers
 app.include_router(auth_router)
