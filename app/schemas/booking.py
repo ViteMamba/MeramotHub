@@ -18,6 +18,16 @@ class BookingCreateSchema(BaseModel):
 class BookingStatusUpdateSchema(BaseModel):
     status: BookingStatus
 
+class PayAndBookSchema(BaseModel):
+    service_item_id: int
+    address: str
+    latitude: Optional[Decimal] = None
+    longitude: Optional[Decimal] = None
+    scheduled_at: Optional[datetime] = None
+    notes: Optional[str] = None
+    payment_method: str
+    mfs_transaction_id: str
+
 class BookingResponseSchema(BaseModel):
     id: UUID
     customer_id: UUID
@@ -33,5 +43,21 @@ class BookingResponseSchema(BaseModel):
     total_price: Decimal
     created_at: datetime
     updated_at: datetime
+    provider_name: Optional[str] = None
+    provider_phone: Optional[str] = None
+    provider_area: Optional[str] = None
+    provider_latitude: Optional[Decimal] = None
+    provider_longitude: Optional[Decimal] = None
+    service_name: Optional[str] = None
+    customer_name: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+class PayAndBookResponseSchema(BaseModel):
+    booking: BookingResponseSchema
+    payment_id: Optional[int] = None
+    payment_status: Optional[str] = None
+    amount_paid: Optional[Decimal] = None
+    mfs_transaction_id: Optional[str] = None
 
     model_config = {"from_attributes": True}
