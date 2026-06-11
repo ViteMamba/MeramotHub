@@ -9,15 +9,20 @@ test_api.py
 check_col.py
 seed_services.py
 
-# Environment
-.env
-
-# Python cache and bytecode
+# Python
 __pycache__/
 *.py[cod]
+*.egg-info/
+dist/
+build/
 
-# Python virtual environments
-.venv/
+# Virtual environment
 venv/
-env/
-ENV/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# Environment
+.env
