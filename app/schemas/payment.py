@@ -13,7 +13,7 @@ class PaymentResponseSchema(BaseModel):
     id: int
     booking_id: UUID
     customer_id: UUID
-    provider_id: UUID
+    provider_id: Optional[UUID] = None
     amount: Decimal
     commission_rate: Decimal
     commission_amount: Decimal
@@ -25,3 +25,11 @@ class PaymentResponseSchema(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+class ProviderEarningsSummarySchema(BaseModel):
+    total_earned: Decimal
+    pending_release: Decimal
+    total_released: Decimal
+    total_refunded: Decimal
+    booking_count: int
+    released_booking_count: int

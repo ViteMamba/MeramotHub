@@ -17,7 +17,7 @@ class Payment(Base):
     id = Column(Integer, primary_key=True, index=True)
     booking_id = Column(UUID(as_uuid=True), ForeignKey("bookings.id"), unique=True, nullable=False)
     customer_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    provider_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    provider_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     
     amount = Column(Numeric(10, 2), nullable=False)
     commission_rate = Column(Numeric(4, 2), default=0.10) # 10%

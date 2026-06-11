@@ -23,10 +23,13 @@ from app.schemas.booking import (
     BookingCreateSchema,
     BookingResponseSchema,
     BookingStatusUpdateSchema,
+    PayAndBookSchema,
+    PayAndBookResponseSchema,
 )
 from app.schemas.payment import (
     PaymentInitSchema,
     PaymentResponseSchema,
+    ProviderEarningsSummarySchema,
 )
 from app.schemas.review import (
     ReviewCreateSchema,
@@ -47,6 +50,12 @@ from app.schemas.response import (
     SuccessResponse,
     ErrorResponse,
 )
+from app.schemas.chat import (
+    MessageCreateSchema,
+    MessageResponseSchema,
+    ChatUserResponseSchema,
+    ConversationResponseSchema,
+)
 
 __all__ = [
     "UserRegisterSchema", "UserLoginSchema", "UserResponseSchema",
@@ -56,11 +65,14 @@ __all__ = [
     "CategoryCreateSchema", "CategoryResponseSchema",
     "ServiceItemCreateSchema", "ServiceItemResponseSchema", "ServiceItemUpdateSchema",
     "BookingCreateSchema", "BookingResponseSchema", "BookingStatusUpdateSchema",
-    "PaymentInitSchema", "PaymentResponseSchema",
+    "PayAndBookSchema", "PayAndBookResponseSchema",
+    "PaymentInitSchema", "PaymentResponseSchema", "ProviderEarningsSummarySchema",
     "ReviewCreateSchema", "ReviewResponseSchema",
     "ComplaintCreateSchema", "ComplaintAssignSchema",
     "ComplaintResolveSchema", "ComplaintResponseSchema",
     "SubscriptionCreateSchema", "SubscriptionResponseSchema",
     "InstantBookingCreateSchema",
     "SuccessResponse", "ErrorResponse",
+    "MessageCreateSchema", "MessageResponseSchema",
+    "ChatUserResponseSchema", "ConversationResponseSchema",
 ]

@@ -13,6 +13,7 @@ from app.models.payment import Payment, PaymentStatus
 from app.schemas.payment import (
     PaymentInitSchema,
     PaymentResponseSchema,
+    ProviderEarningsSummarySchema,
 )
 from app.utils.roles import require_role
 from app.services.payment_service import refund_payment
@@ -89,6 +90,47 @@ def get_my_earnings(
 ):
     """Provider views their released earnings."""
     return db.query(Payment).filter(Payment.provider_id == current_user.id, Payment.status == PaymentStatus.released).all()
+
+@router.get("/provider-summary", response_model=ProviderEarningsSummarySchema)
+def get_provider_earnings_summary(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.service_provider]))
+):
+    """Provider views their earnings summary (total, pending, released, refunded)."""
+    all_payments = db.query(Payment).filter(Payment.provider_id == current_user.id)
+    released_payments = all_payments.filter(Payment.status == PaymentStatus.released)
+
+    total_earned = db.query(func.sum(Payment.provider_amount)).filter(
+        Payment.provider_id == current_user.id,
+        Payment.status.in_([PaymentStatus.held, PaymentStatus.released])
+    ).scalar() or 0
+
+    pending_release = db.query(func.sum(Payment.provider_amount)).filter(
+        Payment.provider_id == current_user.id,
+        Payment.status == PaymentStatus.held
+    ).scalar() or 0
+
+    total_released = db.query(func.sum(Payment.provider_amount)).filter(
+        Payment.provider_id == current_user.id,
+        Payment.status == PaymentStatus.released
+    ).scalar() or 0
+
+    total_refunded = db.query(func.sum(Payment.amount)).filter(
+        Payment.provider_id == current_user.id,
+        Payment.status == PaymentStatus.refunded
+    ).scalar() or 0
+
+    booking_count = all_payments.count()
+    released_booking_count = released_payments.count()
+
+    return ProviderEarningsSummarySchema(
+        total_earned=total_earned,
+        pending_release=pending_release,
+        total_released=total_released,
+        total_refunded=total_refunded,
+        booking_count=booking_count,
+        released_booking_count=released_booking_count,
+    )
 
 @router.get("/dashboard")
 def get_payment_summary(

@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, cast, String
 from typing import List, Optional
 from uuid import UUID
+from pydantic import BaseModel
 
 from app.database import get_db
 from app.models.user import User, UserRole
@@ -12,6 +13,7 @@ from app.models.service_provider import ServiceProviderProfile, VerificationStat
 from app.models.complaint import Complaint, ComplaintStatus
 from app.models.review import Review
 from app.utils.roles import require_role
+from app.utils.auth import hash_password
 
 router = APIRouter(prefix="/admin", tags=["Admin & Area Manager Dashboard"])
 
@@ -278,3 +280,127 @@ def approve_provider(
     db.commit()
 
     return {"message": f"Provider {user.full_name} has been approved and granted full access"}
+
+
+# ──────────────────────────────────────────────
+# New Admin & AM endpoints
+# ──────────────────────────────────────────────
+
+class AreaManagerCreateSchema(BaseModel):
+    full_name: str
+    phone_number: str
+    email: Optional[str] = None
+    password: str
+    area: str
+
+
+@router.get("/recent-bookings")
+def get_recent_bookings(
+    limit: int = 10,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.admin]))
+):
+    """Admin: Get recent bookings list for dashboard."""
+    bookings = (
+        db.query(Booking)
+        .order_by(Booking.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    result = []
+    for b in bookings:
+        result.append({
+            "id": str(b.id),
+            "customer_name": b.customer.full_name if b.customer else "Unknown",
+            "service_name": b.service_item.name if b.service_item else "Unknown",
+            "status": b.status.value,
+            "total_price": float(b.total_price),
+            "created_at": str(b.created_at),
+        })
+    return result
+
+
+@router.get("/area-manager/recent-activity")
+def get_area_manager_recent_activity(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.area_manager]))
+):
+    """Area Manager: Get recent activity list (pending verifications and recent complaints)."""
+    # Pending provider verifications
+    pending_verifications = (
+        db.query(ServiceProviderProfile)
+        .filter(ServiceProviderProfile.verification_status == VerificationStatus.pending)
+        .order_by(ServiceProviderProfile.created_at.desc())
+        .limit(5)
+        .all()
+    )
+
+    # Recent complaints
+    recent_complaints = (
+        db.query(Complaint)
+        .order_by(Complaint.created_at.desc())
+        .limit(5)
+        .all()
+    )
+
+    return {
+        "pending_verifications": [
+            {
+                "id": p.id,
+                "full_name": p.user.full_name if p.user else "Unknown",
+                "skill_category": p.skill_category.value if hasattr(p.skill_category, "value") else str(p.skill_category),
+                "created_at": str(p.created_at),
+            }
+            for p in pending_verifications
+        ],
+        "recent_complaints": [
+            {
+                "id": c.id,
+                "subject": c.subject,
+                "status": c.status.value if hasattr(c.status, "value") else str(c.status),
+                "created_at": str(c.created_at),
+            }
+            for c in recent_complaints
+        ]
+    }
+
+
+@router.post("/area-managers", status_code=status.HTTP_201_CREATED)
+def create_area_manager(
+    data: AreaManagerCreateSchema,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.admin]))
+):
+    """Admin: Create a new Area Manager account."""
+    # Check if phone number already exists
+    existing_phone = db.query(User).filter(User.phone_number == data.phone_number).first()
+    if existing_phone:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Phone number already registered"
+        )
+
+    # Check email if provided
+    if data.email:
+        existing_email = db.query(User).filter(User.email == data.email).first()
+        if existing_email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
+
+    new_am = User(
+        full_name=data.full_name,
+        phone_number=data.phone_number,
+        email=data.email,
+        password_hash=hash_password(data.password),
+        role=UserRole.area_manager,
+        is_active=True,
+        is_verified=True,
+        is_approved=True,
+        area=data.area
+    )
+    db.add(new_am)
+    db.commit()
+    db.refresh(new_am)
+    return {"message": "Area manager created successfully", "user_id": str(new_am.id)}

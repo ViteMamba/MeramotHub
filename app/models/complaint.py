@@ -13,6 +13,7 @@ class ComplaintStatus(str, enum.Enum):
     resolved = "resolved"
     dismissed = "dismissed"
     prog = "prog"
+    pending_approval = "pending_approval"
 
 
 class ComplaintResolution(str, enum.Enum):
