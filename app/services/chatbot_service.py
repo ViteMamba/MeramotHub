@@ -60,4 +60,4 @@ async def get_chatbot_response(user_message: str, user_name: Optional[str] = Non
         return response.choices[0].message.content
     except Exception as e:
         logger.error(f"Groq API error: {e}", exc_info=True)
-        return "Sorry, I'm having trouble connecting right now. Please try again in a moment."
+        return "Sorry, I'm having trouble connecting right now. Please try again in a moment and thanks for your patience."
