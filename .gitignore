@@ -1,23 +1,28 @@
-# Logs
+Logs
 API_CHECK_LOG.md
 api_test_log.md
 
-# Utility scripts
+Utility scripts
 fix_db.py
 sync_db.py
 test_api.py
 check_col.py
 seed_services.py
 
-# Byte-compiled
-__pycache__/
+Python
+pycache/
 *.py[cod]
+*.egg-info/
+dist/
+build/
 
-# Database
-*.db
+Virtual environment
+venv/
+.venv/
 
-# Environment
+IDE
+.vscode/
+.idea/
+
+Environment
 .env
-
-# Temp files
-nul
