@@ -37,3 +37,17 @@ class InstantBookingCreateSchema(BaseModel):
     longitude: Optional[Decimal] = None
     notes: Optional[str] = None
 
+
+class FavoriteProviderResponseSchema(BaseModel):
+    id: int
+    customer_id: UUID
+    provider_id: UUID
+    created_at: datetime
+    provider_name: Optional[str] = None
+    provider_area: Optional[str] = None
+    provider_phone: Optional[str] = None
+    customer_name: Optional[str] = None
+    provider_skill: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+

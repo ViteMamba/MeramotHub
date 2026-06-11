@@ -21,6 +21,8 @@ from app.schemas.booking import (
     PayAndBookSchema,
     PayAndBookResponseSchema,
 )
+from app.models.favorite_provider import FavoriteProvider
+from app.models.subscription import Subscription
 from app.utils.roles import require_role
 
 router = APIRouter(prefix="/bookings", tags=["Bookings"])
@@ -66,6 +68,29 @@ def _enrich_bookings(bookings, db):
     return bookings
 
 
+# ── Helper: auto-accept booking if provider is customer's Priyo ──
+
+def _auto_accept_if_priyo(booking, customer_id, db):
+    """If the provider is marked as Priyo by the customer and customer has active subscription, auto-accept."""
+    if not booking.provider_id:
+        return
+    fav = db.query(FavoriteProvider).filter(
+        FavoriteProvider.customer_id == customer_id,
+        FavoriteProvider.provider_id == booking.provider_id
+    ).first()
+    if not fav:
+        return
+    sub = db.query(Subscription).filter(
+        Subscription.user_id == customer_id,
+        Subscription.is_active == True
+    ).first()
+    if not sub:
+        return
+    if sub.expires_at and sub.expires_at < datetime.now(timezone.utc):
+        return
+    booking.status = BookingStatus.accepted
+
+
 # ── Create booking (standard two-step) ──
 
 @router.post("/", response_model=BookingResponseSchema, status_code=status.HTTP_201_CREATED)
@@ -87,6 +112,8 @@ def create_booking(
     )
     
     db.add(new_booking)
+    db.flush()
+    _auto_accept_if_priyo(new_booking, current_user.id, db)
     db.commit()
     db.refresh(new_booking)
     return _enrich_booking(new_booking, db)
@@ -139,6 +166,7 @@ def pay_and_book(
         paid_at=datetime.now(timezone.utc),
     )
     db.add(payment)
+    _auto_accept_if_priyo(new_booking, current_user.id, db)
     db.commit()
     db.refresh(new_booking)
     db.refresh(payment)
