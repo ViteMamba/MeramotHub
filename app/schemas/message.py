@@ -26,6 +26,7 @@ class ConversationUserSchema(BaseModel):
     full_name: str
     phone_number: str
     role: str
+    skill_category: Optional[str] = None
 
 
 class ConversationResponseSchema(BaseModel):

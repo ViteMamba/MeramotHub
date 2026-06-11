@@ -19,6 +19,7 @@ class PaymentResponseSchema(BaseModel):
     commission_amount: Decimal
     provider_amount: Decimal
     status: PaymentStatus
+    payment_method: Optional[str]
     mfs_transaction_id: Optional[str]
     paid_at: Optional[datetime]
     released_at: Optional[datetime]

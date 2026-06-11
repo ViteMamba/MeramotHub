@@ -15,6 +15,10 @@ class BookingCreateSchema(BaseModel):
     notes: Optional[str] = None
     provider_id: Optional[UUID] = None # Optional, can be auto-assigned later
 
+class BookingWithPaymentSchema(BookingCreateSchema):
+    payment_method: str  # bkash, nagad, card, bank
+    mfs_transaction_id: str
+
 class BookingStatusUpdateSchema(BaseModel):
     status: BookingStatus
 

@@ -10,16 +10,19 @@ from app.database import Base
 class ComplaintStatus(str, enum.Enum):
     open = "open"
     assigned = "assigned"
+    in_review = "in_review"
     resolved = "resolved"
     dismissed = "dismissed"
     prog = "prog"
+    pending_approval = "pending_approval"
+    refunded = "refunded"
+    rework = "rework"
 
 
 class ComplaintResolution(str, enum.Enum):
-    refunded = "refunded"
-    warning_issued = "warning_issued"
-    no_action = "no_action"
-    provider_banned = "provider_banned"
+    refund = "refund"
+    rework = "rework"
+    resolve = "resolve"
 
 
 class Complaint(Base):

@@ -11,6 +11,12 @@ class PaymentStatus(str, enum.Enum):
     released = "released"
     refunded = "refunded"
 
+class PaymentMethod(str, enum.Enum):
+    bkash = "bkash"
+    nagad = "nagad"
+    card = "card"
+    bank = "bank"
+
 class Payment(Base):
     __tablename__ = "payments"
 
@@ -25,7 +31,8 @@ class Payment(Base):
     provider_amount = Column(Numeric(10, 2), nullable=False)
     
     status = Column(SAEnum(PaymentStatus, native_enum=False), default=PaymentStatus.pending)
-    mfs_transaction_id = Column(String(100), nullable=True) # Simulated
+    payment_method = Column(String(20), nullable=True)
+    mfs_transaction_id = Column(String(100), nullable=True) # Transaction reference
     
     paid_at = Column(DateTime(timezone=True), nullable=True)
     released_at = Column(DateTime(timezone=True), nullable=True)

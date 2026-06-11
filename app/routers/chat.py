@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from app.database import get_db
 from app.models.user import User
 from app.models.message import Message
+from app.models.service_provider import ServiceProviderProfile
 from app.schemas.message import (
     MessageSendSchema,
     MessageResponseSchema,
@@ -29,11 +30,19 @@ def get_user_brief(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    skill_category = None
+    if user.role.value == "service_provider":
+        profile = db.query(ServiceProviderProfile).filter(ServiceProviderProfile.user_id == user.id).first()
+        if profile:
+            skill_category = profile.skill_category
+
     return ConversationUserSchema(
         id=user.id,
         full_name=user.full_name,
         phone_number=user.phone_number,
         role=user.role.value,
+        skill_category=skill_category,
     )
 
 
@@ -119,6 +128,12 @@ def get_conversations(
             .count()
         )
 
+        skill_category = None
+        if partner.role.value == "service_provider":
+            profile = db.query(ServiceProviderProfile).filter(ServiceProviderProfile.user_id == partner.id).first()
+            if profile:
+                skill_category = profile.skill_category
+
         conversations.append(
             ConversationResponseSchema(
                 user=ConversationUserSchema(
@@ -126,6 +141,7 @@ def get_conversations(
                     full_name=partner.full_name,
                     phone_number=partner.phone_number,
                     role=partner.role.value,
+                    skill_category=skill_category,
                 ),
                 last_message=last_message,
                 unread_count=unread_count,

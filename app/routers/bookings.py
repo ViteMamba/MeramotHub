@@ -3,16 +3,19 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime, timezone
+from decimal import Decimal
+from uuid import UUID
 
 from app.database import get_db
 from app.models.user import User, UserRole
-from uuid import UUID
 from app.utils.auth import get_current_user
 from app.services.payment_service import release_payment
 from app.models.service import ServiceItem
 from app.models.booking import Booking, BookingStatus, BookingType
+from app.models.payment import Payment, PaymentStatus
 from app.schemas.booking import (
     BookingCreateSchema,
+    BookingWithPaymentSchema,
     BookingResponseSchema,
     BookingStatusUpdateSchema,
 )
@@ -51,6 +54,55 @@ def create_booking(
     db.commit()
     db.refresh(new_booking)
     return _enrich_booking(new_booking, db)
+
+@router.post("/pay-and-book", response_model=BookingResponseSchema, status_code=status.HTTP_201_CREATED)
+def pay_and_book(
+    booking_data: BookingWithPaymentSchema,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.customer]))
+):
+    """Customer creates a booking and pays immediately. Funds held in escrow."""
+    service_item = db.query(ServiceItem).filter(ServiceItem.id == booking_data.service_item_id).first()
+    if not service_item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service item not found")
+
+    booking = Booking(
+        customer_id=current_user.id,
+        service_item_id=booking_data.service_item_id,
+        booking_type=booking_data.booking_type,
+        scheduled_at=booking_data.scheduled_at,
+        address=booking_data.address,
+        latitude=booking_data.latitude,
+        longitude=booking_data.longitude,
+        notes=booking_data.notes,
+        total_price=service_item.base_price,
+        status=BookingStatus.pending,
+    )
+    db.add(booking)
+    db.flush()
+
+    amount = service_item.base_price
+    commission_rate = Decimal("0.10")
+    commission_amount = amount * commission_rate
+    provider_amount = amount - commission_amount
+
+    payment = Payment(
+        booking_id=booking.id,
+        customer_id=current_user.id,
+        provider_id=service_item.provider_id,
+        amount=amount,
+        commission_rate=commission_rate,
+        commission_amount=commission_amount,
+        provider_amount=provider_amount,
+        status=PaymentStatus.held,
+        payment_method=booking_data.payment_method,
+        mfs_transaction_id=booking_data.mfs_transaction_id,
+        paid_at=datetime.now(timezone.utc),
+    )
+    db.add(payment)
+    db.commit()
+    db.refresh(booking)
+    return _enrich_booking(booking, db)
 
 @router.get("/my", response_model=List[BookingResponseSchema])
 def get_my_bookings(

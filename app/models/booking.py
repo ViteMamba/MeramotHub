@@ -10,6 +10,7 @@ class BookingType(str, enum.Enum):
     standard = "standard"
     emergency = "emergency"
     instant = "instant"
+    rework = "rework"
 
 class BookingStatus(str, enum.Enum):
     pending = "pending"

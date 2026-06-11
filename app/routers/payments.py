@@ -90,6 +90,33 @@ def get_my_earnings(
     """Provider views their released earnings."""
     return db.query(Payment).filter(Payment.provider_id == current_user.id, Payment.status == PaymentStatus.released).all()
 
+@router.get("/provider-summary")
+def get_provider_summary(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.service_provider]))
+):
+    """Provider views their earnings summary (total earned, pending, commission)."""
+    total_earned = (
+        db.query(func.sum(Payment.provider_amount))
+        .filter(Payment.provider_id == current_user.id, Payment.status == PaymentStatus.released)
+        .scalar() or 0
+    )
+    pending_amount = (
+        db.query(func.sum(Payment.provider_amount))
+        .filter(Payment.provider_id == current_user.id, Payment.status == PaymentStatus.held)
+        .scalar() or 0
+    )
+    commission_total = (
+        db.query(func.sum(Payment.commission_amount))
+        .filter(Payment.provider_id == current_user.id)
+        .scalar() or 0
+    )
+    return {
+        "total_earned": total_earned,
+        "pending_amount": pending_amount,
+        "commission_total": commission_total,
+    }
+
 @router.get("/dashboard")
 def get_payment_summary(
     db: Session = Depends(get_db),

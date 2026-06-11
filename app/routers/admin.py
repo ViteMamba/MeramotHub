@@ -8,6 +8,7 @@ from app.database import get_db
 from app.models.user import User, UserRole
 from app.models.booking import Booking, BookingStatus
 from app.models.payment import Payment, PaymentStatus
+from app.models.service import ServiceItem
 from app.models.service_provider import ServiceProviderProfile, VerificationStatus
 from app.models.complaint import Complaint, ComplaintStatus
 from app.models.review import Review
@@ -176,6 +177,34 @@ def change_user_role(
     return {"message": f"User {user.full_name} role changed to {new_role.value}"}
 
 
+@router.get("/recent-bookings")
+def get_recent_bookings(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.admin]))
+):
+    """Admin: Get the 10 most recent bookings across the platform."""
+    bookings = (
+        db.query(Booking)
+        .order_by(Booking.created_at.desc())
+        .limit(10)
+        .all()
+    )
+    result = []
+    for b in bookings:
+        customer = db.query(User).filter(User.id == b.customer_id).first()
+        service_item = db.query(ServiceItem).filter(ServiceItem.id == b.service_item_id).first()
+        result.append({
+            "id": str(b.id),
+            "customer_name": customer.full_name if customer else "Unknown",
+            "service_name": service_item.name if service_item else "Unknown",
+            "address": b.address,
+            "status": b.status.value,
+            "total_price": float(b.total_price),
+            "created_at": str(b.created_at),
+        })
+    return result
+
+
 # ──────────────────────────────────────────────
 # Area Manager endpoints
 # ──────────────────────────────────────────────
@@ -205,6 +234,47 @@ def get_area_manager_stats(
         "assigned_complaints": total_complaints,
         "resolved_complaints": resolved_complaints,
         "verified_providers": verified_by_me,
+    }
+
+
+@router.get("/area-manager/recent-activity")
+def get_area_manager_recent_activity(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role([UserRole.area_manager]))
+):
+    """Area Manager: Get recent providers pending verification and recent complaints."""
+    recent_verifications = (
+        db.query(ServiceProviderProfile)
+        .filter(ServiceProviderProfile.verification_status == VerificationStatus.pending)
+        .order_by(ServiceProviderProfile.created_at.desc())
+        .limit(5)
+        .all()
+    )
+    recent_complaints = (
+        db.query(Complaint)
+        .order_by(Complaint.created_at.desc())
+        .limit(5)
+        .all()
+    )
+    return {
+        "pending_verifications": [
+            {
+                "id": p.id,
+                "full_name": p.user.full_name if p.user else "Unknown",
+                "skill_category": p.skill_category,
+                "created_at": str(p.created_at),
+            }
+            for p in recent_verifications
+        ],
+        "recent_complaints": [
+            {
+                "id": str(c.id),
+                "subject": c.subject,
+                "status": c.status.value,
+                "created_at": str(c.created_at),
+            }
+            for c in recent_complaints
+        ],
     }
 
 

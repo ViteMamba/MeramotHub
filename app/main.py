@@ -2,6 +2,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import inspect, text
 from app.routers.auth import router as auth_router
 from app.routers.service_providers import router as providers_router
 from app.routers.services import router as services_router
@@ -50,6 +51,20 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)
+
+    # Migrate: add missing columns to existing tables
+    inspector = inspect(engine)
+    payments_columns = [c["name"] for c in inspector.get_columns("payments")]
+    if "payment_method" not in payments_columns:
+        with engine.connect() as conn:
+            conn.execute(text("ALTER TABLE payments ADD COLUMN payment_method VARCHAR(20)"))
+            conn.commit()
+
+    # Migrate: widen complaints.status and complaints.resolution columns
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE complaints ALTER COLUMN status TYPE VARCHAR(32)"))
+        conn.execute(text("ALTER TABLE complaints ALTER COLUMN resolution TYPE VARCHAR(100)"))
+        conn.commit()
 
 # Mount routers
 app.include_router(auth_router)
