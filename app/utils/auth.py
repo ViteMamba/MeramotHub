@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+import uuid
 import bcrypt
 
 from fastapi import Depends, HTTPException, status
@@ -59,7 +60,13 @@ def get_current_user(
     except JWTError:
         raise credentials_exception
 
-    user = db.query(User).filter(User.id == int(user_id)).first()
+    # User.id is a UUID in the database, handle string/UUID conversion cleanly
+    try:
+        user_uuid = uuid.UUID(str(user_id))
+        user = db.query(User).filter(User.id == user_uuid).first()
+    except (ValueError, TypeError):
+        user = db.query(User).filter(User.id == user_id).first()
+
     if user is None:
         raise credentials_exception
     if not user.is_active:
