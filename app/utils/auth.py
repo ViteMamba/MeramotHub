@@ -1,18 +1,15 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+import bcrypt
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
 from app.models.user import User, UserRole
-
-# Password hashing context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # OAuth2 scheme — points to the login endpoint
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -20,12 +17,17 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 def hash_password(password: str) -> str:
     """Hash a plain-text password using bcrypt."""
-    return pwd_context.hash(password)
+    pw_bytes = password[:72].encode("utf-8")
+    return bcrypt.hashpw(pw_bytes, bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a plain-text password against a bcrypt hash."""
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        pw_bytes = plain_password[:72].encode("utf-8")
+        return bcrypt.checkpw(pw_bytes, hashed_password.encode("utf-8"))
+    except Exception:
+        return False
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
@@ -49,7 +51,6 @@ def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id: str = payload.get("sub")
@@ -58,14 +59,25 @@ def get_current_user(
     except JWTError:
         raise credentials_exception
 
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).filter(User.id == int(user_id)).first()
     if user is None:
         raise credentials_exception
-
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is deactivated",
+            detail="User account is deactivated",
         )
-
     return user
+
+
+def require_role(*allowed_roles: UserRole):
+    """Dependency factory: restrict endpoint access to specific roles."""
+    def role_checker(current_user: User = Depends(get_current_user)) -> User:
+        user_role = UserRole(current_user.role)
+        if user_role not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access denied. Required roles: {[r.value for r in allowed_roles]}",
+            )
+        return current_user
+    return role_checker
